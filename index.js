@@ -9,14 +9,13 @@ module.exports = (app) => {
   app.log.info("Yay, the app was loaded!");
 
   app.on("issues.opened", async (context) => {
-    console.log("hi");
     //return context.octokit.issues.createComment(issueComment);
 
-    // return context.octokit.rest.repos.createDispatchEvent({
-    //   owner: context.payload.repository.owner.login,
-    //   repo: "actions-callers",
-    //   event_type: "call-01",
-    // });
+    return context.octokit.rest.repos.createDispatchEvent({
+      owner: context.payload.repository.owner.login,
+      repo: "actions-callers",
+      event_type: "call-01",
+    });
 
     // //START
     // var caller_repo ="actions-callers"
