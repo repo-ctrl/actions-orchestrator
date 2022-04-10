@@ -6,7 +6,7 @@ var axios = require('axios');
 const token = ""
 const caller_repo = "actions-callers"
 
-function doRepoDispatch(context,caller_repo,event_type) {
+function createRepoDispatch(context,caller_repo,event_type,callback) {
   var data = JSON.stringify({"event_type":event_type});
   var config = {
     method: 'post',
@@ -19,15 +19,13 @@ function doRepoDispatch(context,caller_repo,event_type) {
     data : data
   };
   axios(config).then(function (response) {
-    //console.log(JSON.stringify(response.data));
-    return response;
+    callback(response);
   }).catch(function (error) {
-    //console.log(error);
-    return error;
+    callback(error);
   });
 }
  
-function createCheckRun(context,check_name) {
+function createCheckRun(context,check_name,callback) {
   var data = JSON.stringify({"name":check_name, "head_sha":context.payload.pull_request.head.sha});
   var config = {
     method: 'post',
@@ -40,23 +38,32 @@ function createCheckRun(context,check_name) {
     data : data
   };
   axios(config).then(function (response) {
-    //console.log(JSON.stringify(response.data));
-    return response;
+    callback(response);
   }).catch(function (error) {
-    //console.log(error);
-    return error;
+    callback(error)
   });
 }
 
 module.exports = (app) => {
-
-  app.on("issues.edited", async (context) => {
-    fx_response=doRepoDispatch(context,caller_repo,"call-01");
-    console.log(fx_response.status)
-  });
-
   app.on("pull_request.edited", async (context) => {
-    fx_response=createCheckRun(context,caller_repo);
-    console.log(fx_response.status)
+    createCheckRun(context,"This is a test", function (fx_response){
+      if(fx_response.status == 201){
+        createRepoDispatch(context,caller_repo,"call-01",function (fx_response){
+          if(fx_response.status == 204){
+            console.log("Repo Dispatch Successful")
+          } else {
+            //ERRLOG
+            console.log("ERROR: Creating Repo Dispatch failed")
+            console.log(fx_response.response.status)
+            console.log(fx_response.response.data)
+          }
+        });
+      } else {
+        //ERRLOG
+        console.log("ERROR: Creating Check Run failed")
+        console.log(fx_response.response.status)
+        console.log(fx_response.response.data)
+      }
+    }); 
   });
 };
