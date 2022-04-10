@@ -3,32 +3,34 @@
  * @param {import('probot').Probot} app
  */
 
+// CONFIG: The name of the central repo that stores your caller workflows
 const caller_repo = "actions-callers"
 
  module.exports = (app) => {
+  
+  // For every PR related event, we run runRequiredTests
   app.on(['pull_request.opened', 'pull_request.synchronize', 'pull_request.reopened', 'pull_request.edited'], async(context) => {
     runRequiredTests(context, 'pull_request')
   })
 
   async function runRequiredTests(context, source) {
     let headSha;
-
     if (source == "pull_request") {
       headSha = context.payload.pull_request.head.sha
     } 
 
-    // Logic to decide the repo dispatches to kick off
+    // Logic to decide the repo dispatch calls to kick off
     let requiredTests = await getRequiredTests(context)
 
     for (let i=0;i<requiredTests.length;i++){
       let checkRun = await createCheckRun(context, headSha)
-      console.log("DEBUG("+i+"): createCheckRun Complete")
-      //createRepoDispatch
+
+      const check_suite_id = checkRun.data.check_suite.id
+
       let repoDispatch = await createRepoDispatch(context,caller_repo,requiredTests[i])
       console.log("DEBUG("+i+"): createRepoDispatch Complete")
 
-      //figure out reusable workflow result
-      let result = await makeSuccess(context)
+      let result = await getResult(context,check_suite_id)
 
       await resolveCheck(context, headSha, checkRun, result)
     }
@@ -86,7 +88,6 @@ const caller_repo = "actions-callers"
   }
 
   async function createRepoDispatch(context,caller_repo,event_type) {
-    console.log("Owner is "+context.payload.repository.owner.login+" and name is "+caller_repo)
 
     const installIdResponse = await context.octokit.apps.getOrgInstallation({
       org: context.payload.repository.owner.login
@@ -111,4 +112,14 @@ const caller_repo = "actions-callers"
     })
   }
 
+  async function getResult(context,check_suite_id){
+    let wf_runs = await context.octokit.actions.listWorkflowRunsForRepo({
+      owner: context.payload.repository.owner.login,
+      repo: caller_repo,
+      event: "repository_dispatch"    
+    });
+    //Figure out the actual corresponding run
+    // If the run has completed, then return the conclusion
+    // else wait 
+  }
 };
