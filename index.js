@@ -87,7 +87,24 @@ const caller_repo = "actions-callers"
 
   async function createRepoDispatch(context,caller_repo,event_type) {
     console.log("Owner is "+context.payload.repository.owner.login+" and name is "+caller_repo)
-    return await octokit.rest.repos.createDispatchEvent({
+
+    const installIdResponse = await context.octokit.apps.getOrgInstallation({
+      org: context.payload.repository.owner.login
+    })
+    const installId = installIdResponse.data.id
+    const installTokenResponse = await context.octokit.apps.createInstallationAccessToken({
+      installation_id: installId,
+      permissions: {
+        metadata: 'read',
+        contents: 'write'
+      }
+    });
+    const installToken = installTokenResponse.data.token
+    return await context.octokit.repos.createDispatchEvent({
+      headers: {
+        accept: "application/vnd.github.v3+json",
+        authorization: 'token '+installToken
+      },
       owner: context.payload.repository.owner.login,
       repo: caller_repo,
       event_type: event_type
